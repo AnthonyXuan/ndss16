@@ -15,8 +15,9 @@ COEF_MAX = 3e5
 C_MIN = 1e2
 C_MAX = 9e2
 
+N = 10
 
-class User:
+class User():
     def __init__(self, _id, g, p, q, epsilon, delta, T):
         self.x = random.randint(X_MIN, X_MAX)
         self.y = g ** self.x % q
@@ -28,6 +29,12 @@ class User:
         self.id = _id
         # record the state of the user
         self.s = 0
+
+    def get_y(self):
+        return self.y
+
+    def get_b(self):
+        return self.b
 
     def construct_sketch(self, I):
         self.d = math.ceil(math.log(self.T)/self.delta)
@@ -63,8 +70,10 @@ class User:
                 ) * (-1 if self.id > _id else 1) % self.q
                 k_l += temp
             k.append(k_l)
-            
+
         self.k = k
+        # vector addition
+        self.b = self.X + self.k
 
     def _cal_H(self, x):
         hash_obj = hashlib.sha256(str(x).encode('utf-8'))
@@ -86,3 +95,48 @@ class User:
                  random.randint(COEF_MIN, COEF_MAX))
             )
         self.hash_params = hash_params
+
+
+class Tally():
+    def __init__(self):
+        pass
+
+    def aggregate(self, b_dict: dict):
+        C = 0
+        for k, v in b_dict.items():
+            C += v
+        self.C = C
+        return self.C
+
+
+if __name__ == '__main__':
+    # Some args
+    g = 9999999999999
+    p = 1111111111111
+    q = 3333333333333
+    epsilon = 0.002
+    delta = 0.1
+    T = 20
+    
+    I = [2023 * T]
+    y_dict = {}
+    b_dict = {}
+        
+    users = []
+    # generate N users
+    for i in range(N):
+        user = User(i + 1, g, p, q, epsilon, delta, T)
+        y_dict[i + 1] = user.get_y()
+        users.append(user)
+
+    # each user perform CM Sketch construction & encrypt the Sketch
+    for i in range(N):
+        user = users[i]
+        user.construct_sketch(I)
+        user.encrypt_sketch(y_dict)
+        b_dict[i + 1] = user.get_b()
+        
+    # Tally perform aggregation
+    tally = Tally()
+    C = tally.aggregate(b_dict)
+    print(C)
