@@ -5,19 +5,15 @@ import random
 import math
 import numpy as np
 import hashlib
+import time
 
 from utils import *
-
-X_MIN = 1e3
-X_MAX = 9e3
 
 COEF_MIN = 1e5
 COEF_MAX = 3e5
 
 C_MIN = 1e2
 C_MAX = 9e2
-
-N = 10
 
 
 class User():
@@ -122,12 +118,16 @@ if __name__ == '__main__':
     epsilon = 0.01
     delta = 0.01
     T = 20
+    N = 10
 
     I = [2023 * T]
     y_dict = {}
     b_dict = {}
     users = []
-    
+
+    measure_encryps = []
+    measure_aggregate = 0
+
     group = CyclicGroup(sec_params)
     # generate N users
     for i in range(N):
@@ -140,11 +140,20 @@ if __name__ == '__main__':
         user = users[i]
         user.construct_sketch(I)
         print(i, 'cons')
+        # * measure the encryption time
+        tmp = time.time()
         user.encrypt_sketch(y_dict)
+        measure_encryps.append(time.time() - tmp)
         print(i, 'enc')
         b_dict[i + 1] = user.get_b()
 
     # Tally perform aggregation
     tally = Tally()
+    # * measure the aggregation time
+    tmp = time.time()
     C = tally.aggregate(b_dict)
+    measure_aggregate = time.time() - tmp
+
     print(C)
+    print(measure_encryps)
+    print(measure_aggregate)
