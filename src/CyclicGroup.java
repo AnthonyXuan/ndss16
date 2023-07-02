@@ -12,13 +12,7 @@ public class CyclicGroup {
             q = BigInteger.probablePrime(lambda, rand);
         }
         this.q = q;
-        this.g = BigInteger.valueOf(2);
-        while (this.g.compareTo(this.q.subtract(BigInteger.ONE)) < 0) {
-            if (isGenerator(this.g)) {
-                break;
-            }
-            this.g = this.g.add(BigInteger.ONE);
-        }
+        this.g = randBetween(BigInteger.valueOf(2), this.q.subtract(BigInteger.ONE));
     }
 
     public boolean isPrime(BigInteger n, int k) {
@@ -60,18 +54,6 @@ public class CyclicGroup {
 
     public boolean isPrime(BigInteger n) {
         return isPrime(n, 5);
-    }
-
-    public boolean isGenerator(BigInteger a) {
-        BigInteger d = BigInteger.ONE;
-        BigInteger qMinusOne = this.q.subtract(BigInteger.ONE);
-        while (d.compareTo(qMinusOne) <= 0) {
-            if (this.g.modPow(d, this.q).equals(a)) {
-                return false;
-            }
-            d = d.add(BigInteger.ONE);
-        }
-        return true;
     }
 
     public BigInteger mul(BigInteger a, BigInteger b) {

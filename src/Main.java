@@ -22,6 +22,7 @@ public class Main {
         List<User> users = new ArrayList<User>();
         List<Double> measureEncryps = new ArrayList<Double>();
         double measureAggregate = 0;
+        double avgMeasureEncryps = 0;
 
         CyclicGroup group = new CyclicGroup(secParams);
         for (int i = 0; i < N; i++) {
@@ -33,11 +34,11 @@ public class Main {
         for (int i = 0; i < N; i++) {
             User user = users.get(i);
             user.constructSketch(I);
-            System.out.println(i + " cons");
+            System.out.println(i + " construction finished.");
             long startTime = System.nanoTime();
             user.encryptSketch(yDict);
             measureEncryps.add((double) (System.nanoTime() - startTime) / 1e9);
-            System.out.println(i + " enc");
+            System.out.println(i + " encryption finished.");
             bDict.put(i + 1, user.getB());
         }
 
@@ -46,10 +47,15 @@ public class Main {
         BigInteger C = tally.aggregate(bDict);
         measureAggregate = (double) (System.nanoTime() - startTime) / 1e9;
 
-        System.out.println(C);
-        System.out.println(measureEncryps);
-        System.out.println(measureAggregate);
+        double _tmp = 0;
+        for (int i = 0; i < measureEncryps.size(); i++) {
+            _tmp += measureEncryps.get(i);
+        }
+        avgMeasureEncryps = _tmp / measureEncryps.size();
 
+        System.out.println("C value: " + C);
+        System.out.printf("Avg User Encryption Time: %f (s)\n", avgMeasureEncryps);
+        System.out.printf("Tally Aggregation Time: %f (s)\n", measureAggregate);
     }
 
     public static class User {
