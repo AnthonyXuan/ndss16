@@ -1,7 +1,8 @@
 import java.util.*;
-import java.math.*;
-import java.security.*;
 import java.math.BigInteger;
+import java.security.*;
+
+// ! This scheme includes two entities, User and Tally.
 
 public class Main {
     private static final double COEF_MIN = 1e5;
@@ -24,6 +25,7 @@ public class Main {
         double measureAggregate = 0;
         double avgMeasureEncryps = 0;
 
+        // Create N users
         CyclicGroup group = new CyclicGroup(secParams);
         for (int i = 0; i < N; i++) {
             User user = new User(i + 1, group, epsilon, delta, T);
@@ -31,6 +33,7 @@ public class Main {
             users.add(user);
         }
 
+        // Construct the CM Sketch and Encrypt them
         for (int i = 0; i < N; i++) {
             User user = users.get(i);
             user.constructSketch(I);
@@ -42,11 +45,13 @@ public class Main {
             bDict.put(i + 1, user.getB());
         }
 
+        // Create tally and perform the aggregation
         Tally tally = new Tally();
         long startTime = System.nanoTime();
         BigInteger C = tally.aggregate(bDict);
         measureAggregate = (double) (System.nanoTime() - startTime) / 1e9;
 
+        // Calculate and print the the time costs
         double _tmp = 0;
         for (int i = 0; i < measureEncryps.size(); i++) {
             _tmp += measureEncryps.get(i);
@@ -96,6 +101,7 @@ public class Main {
             return this.b;
         }
 
+        // ! This method is used to construct the CM Sketch
         public void constructSketch(List<Integer> I) {
             this.d = (int) Math.ceil(Math.log(this.T) / this.delta);
             this.w = (int) Math.ceil(Math.E / this.epsilon);
@@ -117,6 +123,7 @@ public class Main {
             }
         }
 
+        // ! This method is used to encrypt the CM Sketch
         public void encryptSketch(Map<Integer, BigInteger> yDict) {
             List<BigInteger> k = new ArrayList<BigInteger>();
             for (int l = 1; l <= this.d * this.w; l++) {
@@ -154,12 +161,14 @@ public class Main {
             }
         }
 
+        // * This hash function refers to hash() in the article
         private int calHash(int index, int x) {
             double a = this.hashParams.get(index).first;
             double b = this.hashParams.get(index).second;
             return (int) ((a * x + b) % this.p.doubleValue() % this.w);
         }
 
+        // * This hash function refers to H() in the article
         private BigInteger calH(String x) {
             try {
                 MessageDigest md = MessageDigest.getInstance("SHA-256");

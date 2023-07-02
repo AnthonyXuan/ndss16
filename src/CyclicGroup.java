@@ -1,6 +1,8 @@
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
+// ! Define the group used in the NDSS16 implementation
+
 public class CyclicGroup {
     private BigInteger q;
     private BigInteger g;
@@ -77,6 +79,7 @@ public class CyclicGroup {
         return r;
     }
 
+    // * generate random number in field Z_q
     public BigInteger rand() {
         return randBetween(BigInteger.ONE, this.q.subtract(BigInteger.ONE));
     }
