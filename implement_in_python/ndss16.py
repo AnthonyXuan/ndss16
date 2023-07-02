@@ -107,7 +107,7 @@ class Tally():
         C = 0
         for k, v in b_dict.items():
             C += v
-        self.C = C
+        self.C = C % 2 ** 32
         return self.C
 
 
