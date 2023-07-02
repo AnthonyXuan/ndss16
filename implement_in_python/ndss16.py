@@ -6,8 +6,10 @@ import math
 import numpy as np
 import hashlib
 
-X_MIN = 1e10
-X_MAX = 9e10
+from utils import *
+
+X_MIN = 1e3
+X_MAX = 9e3
 
 COEF_MIN = 1e5
 COEF_MAX = 3e5
@@ -17,16 +19,20 @@ C_MAX = 9e2
 
 N = 10
 
+
 class User():
-    def __init__(self, _id, g, p, q, epsilon, delta, T):
-        self.x = random.randint(X_MIN, X_MAX)
-        self.y = g ** self.x % q
-        self.p = p
-        self.q = q
+    def __init__(self, _id, group: CyclicGroup, epsilon, delta, T):
+        self.x = group.rand()
+        self.y = group.pow(group.g, self.x)
+        # add the group object to the user
+        self.group = group
+        # hyperparameters
         self.epsilon = epsilon
         self.delta = delta
         self.T = T
         self.id = _id
+
+        self.p = group.rand()
         # record the state of the user
         self.s = 0
 
@@ -66,8 +72,8 @@ class User():
                     continue
 
                 temp = self._cal_H(
-                    str(y_id ** self.x) + str(l) + str(self.s)
-                ) * (-1 if self.id > _id else 1) % self.q
+                    str(self.group.pow(y_id, self.x)) + str(l) + str(self.s)
+                ) * (-1 if self.id > _id else 1) % self.group.q
                 k_l += temp
             k.append(k_l)
 
@@ -111,21 +117,21 @@ class Tally():
 
 if __name__ == '__main__':
     # Some args
-    g = 9999999999999
-    p = 1111111111111
-    q = 3333333333333
-    epsilon = 0.002
-    delta = 0.1
+
+    sec_params = 32
+    epsilon = 0.01
+    delta = 0.01
     T = 20
-    
+
     I = [2023 * T]
     y_dict = {}
     b_dict = {}
-        
     users = []
+    
+    group = CyclicGroup(sec_params)
     # generate N users
     for i in range(N):
-        user = User(i + 1, g, p, q, epsilon, delta, T)
+        user = User(i + 1, group, epsilon, delta, T)
         y_dict[i + 1] = user.get_y()
         users.append(user)
 
@@ -133,9 +139,11 @@ if __name__ == '__main__':
     for i in range(N):
         user = users[i]
         user.construct_sketch(I)
+        print(i, 'cons')
         user.encrypt_sketch(y_dict)
+        print(i, 'enc')
         b_dict[i + 1] = user.get_b()
-        
+
     # Tally perform aggregation
     tally = Tally()
     C = tally.aggregate(b_dict)
