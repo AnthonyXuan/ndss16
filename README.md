@@ -1,18 +1,14 @@
-## Getting Started
+## Repository Information
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+This repository implements the NDSS16 article **Efficient Private Statistics with Succinct Sketches**.
 
-## Folder Structure
-
-The workspace contains two folders by default, where:
-
+The implementation in Java can be found at:
 - `src`: the folder to maintain sources
 - `lib`: the folder to maintain dependencies
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+The Implementation of Python can be found at:
+- `implement_in_python` implementation the scheme in Python
 
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
-
-## Dependency Management
-
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+## Article Information
+The article named [Efficient Private Statistics with Succinct Sketches](https://arxiv.org/pdf/1508.06110), can be referenced as follows:
+>Melis, Luca, George Danezis, and Emiliano De Cristofaro. "Efficient private statistics with succinct sketches." arXiv preprint arXiv:1508.06110 (2015).
