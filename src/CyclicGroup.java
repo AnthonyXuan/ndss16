@@ -18,29 +18,29 @@ public class CyclicGroup {
     }
 
     public boolean isPrime(BigInteger n, int k) {
-        if (n.equals(BigInteger.TWO) || n.equals(BigInteger.valueOf(3))) {
+        if (n.equals(BigInteger.valueOf(2)) || n.equals(BigInteger.valueOf(3))) {
             return true;
         }
-        if (n.compareTo(BigInteger.TWO) < 0 || n.mod(BigInteger.TWO).equals(BigInteger.ZERO)) {
+        if (n.compareTo(BigInteger.valueOf(2)) < 0 || n.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) {
             return false;
         }
 
         int r = 0;
         BigInteger d = n.subtract(BigInteger.ONE);
-        while (d.mod(BigInteger.TWO).equals(BigInteger.ZERO)) {
+        while (d.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) {
             r++;
-            d = d.divide(BigInteger.TWO);
+            d = d.divide(BigInteger.valueOf(2));
         }
 
         for (int i = 0; i < k; i++) {
-            BigInteger a = randBetween(BigInteger.TWO, n.subtract(BigInteger.TWO));
+            BigInteger a = randBetween(BigInteger.valueOf(2), n.subtract(BigInteger.valueOf(2)));
             BigInteger x = a.modPow(d, n);
             if (x.equals(BigInteger.ONE) || x.equals(n.subtract(BigInteger.ONE))) {
                 continue;
             }
             boolean composite = true;
             for (int j = 0; j < r - 1; j++) {
-                x = x.modPow(BigInteger.TWO, n);
+                x = x.modPow(BigInteger.valueOf(2), n);
                 if (x.equals(n.subtract(BigInteger.ONE))) {
                     composite = false;
                     break;
