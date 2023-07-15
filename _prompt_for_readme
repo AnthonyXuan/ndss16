@@ -1,0 +1,360 @@
+The following code is a java implementation of a thesis algorithm, my implementation consists of two main parts of code CyclicGroup.java and Main.java, below I will give the code, a summary of the original article and a template that you can refer to respectively, all elements given will be indicated with <>. Could you please finally give the corresponding README.md based on the elements and templates I have given (just refer to the formatting and language organization)
+
+<1 code CyclicGroup.java>
+import java.math.BigInteger;
+import java.security.SecureRandom;
+
+// ! Define the group used in the NDSS16 implementation
+
+public class CyclicGroup {
+    private BigInteger q;
+    private BigInteger g;
+
+    public CyclicGroup(int lambda) {
+        SecureRandom rand = new SecureRandom();
+        BigInteger q = BigInteger.probablePrime(lambda, rand);
+        while (!isPrime(q)) {
+            q = BigInteger.probablePrime(lambda, rand);
+        }
+        this.q = q;
+        this.g = randBetween(BigInteger.valueOf(2), this.q.subtract(BigInteger.ONE));
+    }
+
+    public boolean isPrime(BigInteger n, int k) {
+        if (n.equals(BigInteger.valueOf(2)) || n.equals(BigInteger.valueOf(3))) {
+            return true;
+        }
+        if (n.compareTo(BigInteger.valueOf(2)) < 0 || n.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) {
+            return false;
+        }
+
+        int r = 0;
+        BigInteger d = n.subtract(BigInteger.ONE);
+        while (d.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) {
+            r++;
+            d = d.divide(BigInteger.valueOf(2));
+        }
+
+        for (int i = 0; i < k; i++) {
+            BigInteger a = randBetween(BigInteger.valueOf(2), n.subtract(BigInteger.valueOf(2)));
+            BigInteger x = a.modPow(d, n);
+            if (x.equals(BigInteger.ONE) || x.equals(n.subtract(BigInteger.ONE))) {
+                continue;
+            }
+            boolean composite = true;
+            for (int j = 0; j < r - 1; j++) {
+                x = x.modPow(BigInteger.valueOf(2), n);
+                if (x.equals(n.subtract(BigInteger.ONE))) {
+                    composite = false;
+                    break;
+                }
+            }
+            if (composite) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public boolean isPrime(BigInteger n) {
+        return isPrime(n, 5);
+    }
+
+    public BigInteger mul(BigInteger a, BigInteger b) {
+        return a.multiply(b).mod(this.q);
+    }
+
+    public BigInteger add(BigInteger a, BigInteger b) {
+        return a.add(b).mod(this.q);
+    }
+
+    public BigInteger pow(BigInteger a, BigInteger n) {
+        return a.modPow(n, this.q);
+    }
+
+    public BigInteger randBetween(BigInteger a, BigInteger b) {
+        SecureRandom rand = new SecureRandom();
+        BigInteger r = new BigInteger(b.bitLength(), rand);
+        while (r.compareTo(a) < 0 || r.compareTo(b) > 0) {
+            r = new BigInteger(b.bitLength(), rand);
+        }
+        return r;
+    }
+
+    // * generate random number in field Z_q
+    public BigInteger rand() {
+        return randBetween(BigInteger.ONE, this.q.subtract(BigInteger.ONE));
+    }
+
+    public BigInteger getG() {
+        return this.g;
+    }
+}
+<2 code Main.java>
+import java.util.*;
+import java.math.BigInteger;
+import java.security.*;
+
+// ! This scheme includes two entities, User and Tally.
+
+public class Main {
+    private static final double COEF_MIN = 1e5;
+    private static final double COEF_MAX = 3e5;
+    private static final double C_MIN = 1e2;
+    private static final double C_MAX = 9e2;
+
+    public static void main(String[] args) {
+        int secParams = 32;
+        double epsilon = 0.01;
+        double delta = 0.01;
+        int T = 20;
+        int N = 10;
+        List<Integer> I = new ArrayList<Integer>();
+        I.add(2023 * T);
+        Map<Integer, BigInteger> yDict = new HashMap<Integer, BigInteger>();
+        Map<Integer, BigInteger[]> bDict = new HashMap<Integer, BigInteger[]>();
+        List<User> users = new ArrayList<User>();
+        List<Double> measureEncryps = new ArrayList<Double>();
+        double measureAggregate = 0;
+        double avgMeasureEncryps = 0;
+
+        // Create N users
+        CyclicGroup group = new CyclicGroup(secParams);
+        for (int i = 0; i < N; i++) {
+            User user = new User(i + 1, group, epsilon, delta, T);
+            yDict.put(i + 1, user.getY());
+            users.add(user);
+        }
+
+        // Construct the CM Sketch and Encrypt them
+        for (int i = 0; i < N; i++) {
+            User user = users.get(i);
+            user.constructSketch(I);
+            System.out.println(i + " construction finished.");
+            long startTime = System.nanoTime();
+            user.encryptSketch(yDict);
+            measureEncryps.add((double) (System.nanoTime() - startTime) / 1e9);
+            System.out.println(i + " encryption finished.");
+            bDict.put(i + 1, user.getB());
+        }
+
+        // Create tally and perform the aggregation
+        Tally tally = new Tally();
+        long startTime = System.nanoTime();
+        BigInteger C = tally.aggregate(bDict);
+        measureAggregate = (double) (System.nanoTime() - startTime) / 1e9;
+
+        // Calculate and print the the time costs
+        double _tmp = 0;
+        for (int i = 0; i < measureEncryps.size(); i++) {
+            _tmp += measureEncryps.get(i);
+        }
+        avgMeasureEncryps = _tmp / measureEncryps.size();
+
+        System.out.println("C value: " + C);
+        System.out.printf("Avg User Encryption Time: %f (s)\n", avgMeasureEncryps);
+        System.out.printf("Tally Aggregation Time: %f (s)\n", measureAggregate);
+    }
+
+    public static class User {
+        private int id;
+        private CyclicGroup group;
+        private double epsilon;
+        private double delta;
+        private int T;
+        private BigInteger x;
+        private BigInteger y;
+        private BigInteger p;
+        private int s;
+        // * d and w should be int, since they are indices in the dictionary
+        private int d;
+        private int w;
+        private int[][] X;
+        private List<BigInteger> k;
+        private BigInteger[] b;
+        private List<Pair<Double, Double>> hashParams;
+
+        public User(int id, CyclicGroup group, double epsilon, double delta, int T) {
+            this.id = id;
+            this.group = group;
+            this.epsilon = epsilon;
+            this.delta = delta;
+            this.T = T;
+            this.x = group.rand();
+            this.y = group.pow(group.getG(), this.x);
+            this.p = group.rand();
+            this.s = 0;
+        }
+
+        public BigInteger getY() {
+            return this.y;
+        }
+
+        public BigInteger[] getB() {
+            return this.b;
+        }
+
+        // ! This method is used to construct the CM Sketch
+        public void constructSketch(List<Integer> I) {
+            this.d = (int) Math.ceil(Math.log(this.T) / this.delta);
+            this.w = (int) Math.ceil(Math.E / this.epsilon);
+            this.genHashParams();
+
+            int[][] XMatrix = new int[this.d][this.w];
+            for (int i : I) {
+                for (int j = 0; j < this.d; j++) {
+                    int h_j_i = this.calHash(j, i);
+                    XMatrix[j][h_j_i] += this.randomC();
+                }
+            }
+
+            this.X = new int[this.d * this.w][1];
+            for (int j = 0; j < this.d; j++) {
+                for (int k = 0; k < this.w; k++) {
+                    this.X[j * this.w + k][0] = XMatrix[j][k];
+                }
+            }
+        }
+
+        // ! This method is used to encrypt the CM Sketch
+        public void encryptSketch(Map<Integer, BigInteger> yDict) {
+            List<BigInteger> k = new ArrayList<BigInteger>();
+            for (int l = 1; l <= this.d * this.w; l++) {
+                BigInteger k_l = BigInteger.valueOf(0);
+                for (Map.Entry<Integer, BigInteger> entry : yDict.entrySet()) {
+                    int id = entry.getKey();
+                    BigInteger y_id = entry.getValue();
+                    if (this.id == id) {
+                        continue;
+                    }
+                    String str = this.group.pow(y_id, this.x) + "" + l + "" + this.s;
+                    BigInteger temp = this.calH(str).multiply(this.id > id ? BigInteger.valueOf(-1) : BigInteger.ONE);
+                    k_l = k_l.add(temp);
+                }
+                k.add(k_l);
+            }
+
+            this.k = k;
+            this.b = new BigInteger[this.d * this.w];
+            for (int i = 0; i < this.d * this.w; i++) {
+                this.b[i] = BigInteger.valueOf(this.X[i][0]).add(this.k.get(i));
+            }
+        }
+
+        private double randomC() {
+            return Math.floor(Math.random() * (C_MAX - C_MIN + 1) + C_MIN);
+        }
+
+        private void genHashParams() {
+            this.hashParams = new ArrayList<Pair<Double, Double>>();
+            for (int i = 0; i < this.d; i++) {
+                double a = Math.floor(Math.random() * (COEF_MAX - COEF_MIN + 1) + COEF_MIN);
+                double b = Math.floor(Math.random() * (COEF_MAX - COEF_MIN + 1) + COEF_MIN);
+                this.hashParams.add(new Pair<Double, Double>(a, b));
+            }
+        }
+
+        // * This hash function refers to hash() in the article
+        private int calHash(int index, int x) {
+            double a = this.hashParams.get(index).first;
+            double b = this.hashParams.get(index).second;
+            return (int) ((a * x + b) % this.p.doubleValue() % this.w);
+        }
+
+        // * This hash function refers to H() in the article
+        private BigInteger calH(String x) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] digest = md.digest(x.getBytes("UTF-8"));
+                BigInteger bigInt = new BigInteger(1, digest);
+                return bigInt.mod(this.p);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return BigInteger.valueOf(-1);
+        }
+    }
+
+    public static class Tally {
+        public BigInteger aggregate(Map<Integer, BigInteger[]> bDict) {
+            BigInteger C = BigInteger.valueOf(0);
+            for (BigInteger[] b : bDict.values()) {
+                for (BigInteger x : b) {
+                    C = C.add(x);
+                }
+            }
+            return C;
+        }
+    }
+
+    public static class Pair<T1, T2> {
+        public T1 first;
+        public T2 second;
+
+        public Pair(T1 first, T2 second) {
+            this.first = first;
+            this.second = second;
+        }
+    }
+}
+<3 abstract of the article>
+Large-scale collection of contextual information is often essential in order to gather statistics, train machine learning models, and extract knowledge from data. The ability to do so in a privacy-preserving way – i.e., without collecting finegrained user data – enables a number of additional computational scenarios that would be hard, or outright impossible, to realize without strong privacy guarantees. In this paper, we present the design and implementation of practical techniques for privately gathering statistics from large data streams. We build on efficient cryptographic protocols for private aggregation and on data structures for succinct data representation, namely, Count-Min Sketch and Count Sketch. These allow us to reduce the communication and computation complexity incurred by each data source (e.g., end-users) from linear to logarithmic in the size of their input, while introducing a parametrized upper-bounded error that does not compromise the quality of the statistics. We then show how to use our techniques, efficiently, to instantiate real-world privacy-friendly systems, supporting recommendations for media streaming services, prediction of user locations, and computation of median statistics for Tor hidden services.
+<4 reference template>
+# DPHeavyHitter
+
+[toc]
+
+A simple Java implementation of the CCS 2021 paper: Secure Multi-party Computation of Differentially Private Heavy Hitters.
+
+## How2Run
+
+Simply run the `main` method of the `Server.java`, this prototype presents the time consumption of the algorithm `HH` and `PEM`.
+
+## Structure
+
+This project requires the `JPBC` library, and contains five files:
+
+- LaplaceNoise.java: `The implementation of the Laplace noise in the paper.`
+- ShamirSecretSharing.java: `The implementation of the Shamir secret sharing based on the JPBC library.`
+- SecureMPC.java: `The implementation of the secure MPC protocols based on the Shamir secret sharing class.`
+- User.java: `The implementation of the user in the paper.`
+- Server.java: `The simulation of the server in the paper, which contains the major algorithms illustrated in the paper.`
+
+## Details
+
+### LaplaceNoise.java
+
+It contains a method that generates the noise for DP.
+
+### ShamirSecretSharing.java
+
+It contains a class named Share that represents the point ($x_{i}, y_{i}$) in the Shamir secret sharing. 
+
+The second class is the main class that implements the Shamir secret sharing.
+
+The methods in this class is illustrated below:
+
+- generatePolynomial
+- distributeShares
+- createShares
+- recoverSecret
+- main method (For testing.)
+
+### SecureMPC.java
+
+It contains one class that implement the secure MPC protocols in the paper.
+
+Protocols: `EQ, LE, ADD, AND, NOT, CondSwap, Rec`.
+
+### User.java
+
+The user class only contains one attribute, the `datum` that the corresponding held.
+
+### Server.java
+
+The server class contains two major methods: `algorithmHH` and `algorithmPEM`.
+
+Moreover, we have implemented the `secureSwap` algorithm according to the `Appendix F` of the paper.
+
+> Note: We have tried our best to take the same parameters in the paper to test our code. However, some vital parameters are still missing, or ambiguously expressed in the paper.
